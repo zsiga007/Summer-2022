@@ -13,8 +13,7 @@ import matplotlib.pyplot as plt
 # prime generating functions
 # Python program to print prime factors
  
-# A function to print all prime factors of
-# a given number n
+# A function to print all prime factors of a given number n
 def primeFactors(n):
     fact_array = []
     # Print the number of two's that divide n
@@ -54,6 +53,7 @@ def primes_upto(limit):
             for c in range(n*n, limit, n):
                 prime[c] = False # mark composites
 
+
 # encoding algorithm
 def encode(batch, digits, base):
   s=batch.size(dim=0)
@@ -65,4 +65,3 @@ def encode(batch, digits, base):
 def decode(batch, digits, syst):
   batch=(torch.argmax(batch, dim=2)@t)[:, None]
   return(batch)
-
