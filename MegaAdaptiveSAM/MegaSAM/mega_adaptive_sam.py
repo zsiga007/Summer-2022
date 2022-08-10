@@ -89,7 +89,7 @@ class MegaSAM(torch.optim.Optimizer):
                
         return norm, grads_list, grads_flattened
 
-    def _reshape(my_item, target):
+    def _reshape(self, my_item, target):
         target_shapes = [i.size() for i in target]
         target_sizes = [torch.numel(i) for i in target]
         assert torch.numel(my_item) == sum(target_sizes)
