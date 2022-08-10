@@ -177,7 +177,8 @@ def train_multi_model(model, train_data, test_data, optim='SGD', batch_size=32, 
         for numbers, labels in train_loader:
             x = numbers[:,None]
             x = x.to(device)
-            labels = labels.double().to(device)[:,None]
+            # x = x.double()
+            labels = labels.to(device)[:,None]
             # Zero out the gradients
             optimizer.zero_grad()
             if optim == "SAM":
@@ -186,7 +187,12 @@ def train_multi_model(model, train_data, test_data, optim='SGD', batch_size=32, 
                     loss.backward()
                     return loss
             # Forward pass
-            y = model(x)
+            y = model(x.float()).reshape((batch_size,10,1))
+            # print(y.shape)
+            # print(f'y: {y}')
+            # print(f'labels: {labels}')
+            y=y.double()
+            labels=labels.long()
             loss = criterion(y, labels)
             if tracking:
                 # Tracking loss
