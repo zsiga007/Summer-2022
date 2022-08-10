@@ -19,12 +19,12 @@ def _reshape(my_item, target):
   return reshaped_item
 
 class MegaSAM(torch.optim.Optimizer):
-    def __init__(self, params, base_optimizer, M, eta2=0.01, rho=0.05, alpha=0.05, adaptive=False, **kwargs):
+    def __init__(self, params, base_optimizer, M, eta2=0.01, rho=0.05, alpha=0.05, **kwargs):
         assert rho >= 0.0, f"Invalid rho, should be non-negative: {rho}"
         assert eta2 >= 0.0, f"Invalid eta2, should be non-negative: {eta2}"
         assert alpha >= 0.0, f"Invalid rho, should be non-negative: {alpha}"
 
-        defaults = dict(eta2=eta2, rho=rho, alpha=alpha, adaptive=adaptive, **kwargs)
+        defaults = dict(eta2=eta2, rho=rho, alpha=alpha, **kwargs)
         super(MegaSAM, self).__init__(params, defaults)
 
         self.M = M
