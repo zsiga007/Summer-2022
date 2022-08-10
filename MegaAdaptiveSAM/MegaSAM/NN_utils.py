@@ -75,7 +75,7 @@ def train_binary_model(model, train_data, test_data, optim='SGD', batch_size=32,
     if optim=='MegaSAM':
         base_optimizer = torch.optim.SGD
         # need to import the class for megasam
-        optimizer = MegaSAM(model.parameters(), base_optimizer,rho=rho, lr = lr, momentum=momentum)
+        # optimizer = MegaSAM(model.parameters(), base_optimizer)
 
     training_losses = []
     training_accuracies = []
@@ -149,9 +149,10 @@ def train_multi_model(model, train_data, test_data, optim='SGD', batch_size=32, 
     """
     from torchvision import datasets, transforms
     from tqdm.notebook import tqdm, trange
+    numofparams = get_n_params(model)
 
     train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=shuffle_loader)
-    test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=False)
+    # test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=False)
     val_loader = torch.utils.data.DataLoader(test_data, shuffle=False)
 
     if optim == 'SGD':
@@ -164,7 +165,8 @@ def train_multi_model(model, train_data, test_data, optim='SGD', batch_size=32, 
     if optim=='MegaSAM':
         base_optimizer = torch.optim.SGD
         # need to import the class for megasam
-        optimizer = MegaSAM(model.parameters(), base_optimizer,rho=rho, lr = lr, momentum=momentum)
+        optimizer = MegaSAM(model.parameters(), M=torch.diag(torch.ones(numofparams)),
+                            base_optimizer=base_optimizer)
 
     training_losses = []
     training_accuracies = []
@@ -181,9 +183,11 @@ def train_multi_model(model, train_data, test_data, optim='SGD', batch_size=32, 
             labels = labels.to(device)[:,None]
             # Zero out the gradients
             optimizer.zero_grad()
-            if optim == "SAM":
+            if optim == "SAM" or optim == 'MegaSAM':
                 def closure():
-                    loss = criterion(model(x), labels)
+                    y = model(x.float()).reshape((batch_size,10,1))
+                    y = y.double()
+                    loss = criterion(y, labels.long())
                     loss.backward()
                     return loss
             # Forward pass
@@ -191,20 +195,24 @@ def train_multi_model(model, train_data, test_data, optim='SGD', batch_size=32, 
             # print(y.shape)
             # print(f'y: {y}')
             # print(f'labels: {labels}')
-            y=y.double()
-            labels=labels.long()
+            y = y.double()
+            labels = labels.long()
             loss = criterion(y, labels)
             if tracking:
                 # Tracking loss
                 per_epoch_loss += loss
                 # Train accuracy tracking
-                predictions = torch.argmax(y, dim=1)[:,0]
+                predictions = torch.argmax(y, dim=1)
+                # print(predictions)
+                # print(labels)
+                # raise StopIteration
                 correct += torch.sum((predictions == labels).float())
+                # print(correct)
 
             loss.backward()
             if optim == "SAM" or optim == 'MegaSAM':
                 optimizer.step(closure)
-            if optim != "SAM":
+            if optim != "SAM" and optim != 'MegaSAM':
                 optimizer.step()
 
         if tracking:
@@ -217,8 +225,12 @@ def train_multi_model(model, train_data, test_data, optim='SGD', batch_size=32, 
                         # Forward pass
                         x2 = numbers2[:,None] # Maybe we have to fix things here.
                         y2 = model(x2)
-                        predictions2 = torch.argmax(y, dim=1)[:,0]
+                        predictions2 = torch.argmax(y2)
+                        # print(predictions2)
+                        # print(labels2)
+                        # raise StopIteration
                         correct_test += torch.sum((predictions2 == labels2).float())
+                        # print(correct_test)
 
             training_losses.append(per_epoch_loss/len(train_loader))
             training_accuracies.append(correct/len(train_data))

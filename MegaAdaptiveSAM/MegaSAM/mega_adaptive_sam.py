@@ -1,14 +1,10 @@
 import numpy as np
-import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import datasets, transforms
 from tqdm.notebook import tqdm, trange
-from sklearn import datasets
 from tqdm.notebook import tqdm
-import matplotlib.pyplot as plt
-device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 class MegaSAM(torch.optim.Optimizer):
