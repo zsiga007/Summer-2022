@@ -9,7 +9,9 @@ from tqdm.notebook import tqdm, trange
 from tqdm.notebook import tqdm
 import matplotlib.pyplot as plt
 device = "cuda" if torch.cuda.is_available() else "cpu"
-from sam import SAM
+from sam.sam import SAM
+from mega_adaptive_sam import MegaSAM
+
 import sys; sys.path.append("..")
 sys.path.append("sam")
 
