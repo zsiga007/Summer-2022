@@ -19,10 +19,12 @@ def _reshape(my_item, target):
   return reshaped_item
 
 class MegaSAM(torch.optim.Optimizer):
-    def __init__(self, params, base_optimizer, M, rho=0.05, adaptive=False, **kwargs):
+    def __init__(self, params, base_optimizer, M, eta2=0.01, rho=0.05, alpha=0.05, adaptive=False, **kwargs):
         assert rho >= 0.0, f"Invalid rho, should be non-negative: {rho}"
+        assert eta2 >= 0.0, f"Invalid eta2, should be non-negative: {eta2}"
+        assert alpha >= 0.0, f"Invalid rho, should be non-negative: {alpha}"
 
-        defaults = dict(rho=rho, adaptive=adaptive, **kwargs)
+        defaults = dict(eta2=eta2, rho=rho, alpha=alpha, adaptive=adaptive, **kwargs)
         super(MegaSAM, self).__init__(params, defaults)
 
         self.M = M
@@ -33,12 +35,10 @@ class MegaSAM(torch.optim.Optimizer):
     @torch.no_grad()
     def first_step(self, zero_grad=False):
         grad_norm, grads_list, grads_flattened = self._grad_norm()
-        #print(f"self's param groups: {self.param_groups}")
-        scale = self.param_groups[0]['rho'] / (grad_norm + 1e-12)  # replace with rho
+        scale = self.param_groups[0]['rho'] / (grad_norm + 1e-12)
         M_inv = 1 / self.M
         e_w = M_inv * grads_flattened * scale
         reshaped_e_w = _reshape(e_w, grads_list)
-        #print(reshaped_e_w)
         for group in self.param_groups:
           for index, p in enumerate(group["params"]):
             if p.grad is None: continue
@@ -60,13 +60,15 @@ class MegaSAM(torch.optim.Optimizer):
     
     @torch.no_grad()
     def m_step(self, zero_grad=False):
-      alpha = 0.05  # betenni paraméternek
+      alpha = self.param_groups[0]['alpha']
+      eta2 = self.param_groups[0]['eta2']
+      #alpha = 0.05  # betenni paraméternek
       grad_norm, grads_list, grads_flattened = self._grad_norm()
       M_inv = 1 / self.M
       grad_matrix_prod = grads_flattened * M_inv
       update = 0.5 * (((self.param_groups[0]["rho"]) / grad_norm) * grad_matrix_prod * grad_matrix_prod
                       + alpha * M_inv**2 / torch.sqrt(torch.sum(M_inv)))
-      self.M = self.M + 0.01 * update  # eta2-t átírni
+      self.M = self.M + eta2 * update  # eta2-t átírni
 
 
     @torch.no_grad()
