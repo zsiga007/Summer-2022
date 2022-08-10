@@ -10,13 +10,6 @@ from tqdm.notebook import tqdm
 import matplotlib.pyplot as plt
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-def _reshape(my_item, target):
-  target_shapes = [i.size() for i in target]
-  target_sizes = [torch.numel(i) for i in target]
-  assert torch.numel(my_item) == sum(target_sizes)
-  chunked_item = torch.tensor_split(my_item, tuple(np.cumsum(target_sizes))[:-1])
-  reshaped_item = [item.reshape(target_shapes[i]) for i, item in enumerate(chunked_item)]
-  return reshaped_item
 
 class MegaSAM(torch.optim.Optimizer):
     def __init__(self, params, base_optimizer, M, eta2=0.01, rho=0.05, alpha=0.05, **kwargs):
@@ -38,7 +31,7 @@ class MegaSAM(torch.optim.Optimizer):
         scale = self.param_groups[0]['rho'] / (grad_norm + 1e-12)
         M_inv = 1 / self.M
         e_w = M_inv * grads_flattened * scale
-        reshaped_e_w = _reshape(e_w, grads_list)
+        reshaped_e_w = self._reshape(e_w, grads_list)
         for group in self.param_groups:
           for index, p in enumerate(group["params"]):
             if p.grad is None: continue
@@ -95,6 +88,14 @@ class MegaSAM(torch.optim.Optimizer):
         norm = torch.sqrt(M_inv.T @ grads_flattened**2)
                
         return norm, grads_list, grads_flattened
+
+    def _reshape(my_item, target):
+        target_shapes = [i.size() for i in target]
+        target_sizes = [torch.numel(i) for i in target]
+        assert torch.numel(my_item) == sum(target_sizes)
+        chunked_item = torch.tensor_split(my_item, tuple(np.cumsum(target_sizes))[:-1])
+        reshaped_item = [item.reshape(target_shapes[i]) for i, item in enumerate(chunked_item)]
+        return reshaped_item
 
     def load_state_dict(self, state_dict):
         super().load_state_dict(state_dict)
