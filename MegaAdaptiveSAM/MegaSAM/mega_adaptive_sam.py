@@ -55,14 +55,13 @@ class MegaSAM(torch.optim.Optimizer):
     def m_step(self, zero_grad=False):
       alpha = self.param_groups[0]['alpha']
       eta2 = self.param_groups[0]['eta2']
-      #alpha = 0.05  # betenni paraméternek
       grad_norm, grads_list, grads_flattened = self._grad_norm()
       M_inv = 1 / self.M
       grad_matrix_prod = grads_flattened * M_inv
       update = 0.5 * (((self.param_groups[0]["rho"]) / grad_norm) * grad_matrix_prod * grad_matrix_prod)
       if self.param_groups[0]["trace_penalty"]:
         update += 0.5 * alpha * M_inv**2 / torch.sqrt(torch.sum(M_inv))
-      self.M = self.M + eta2 * update  # eta2-t átírni
+      self.M = self.M + eta2 * update
 
 
     @torch.no_grad()
