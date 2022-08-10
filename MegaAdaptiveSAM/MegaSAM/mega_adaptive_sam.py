@@ -12,12 +12,12 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 class MegaSAM(torch.optim.Optimizer):
-    def __init__(self, params, base_optimizer, M, eta2=0.01, rho=0.05, alpha=0.05, **kwargs):
+    def __init__(self, params, base_optimizer, M, eta2=0.01, rho=0.05, alpha=0.05, trace_penalty=True, **kwargs):
         assert rho >= 0.0, f"Invalid rho, should be non-negative: {rho}"
         assert eta2 >= 0.0, f"Invalid eta2, should be non-negative: {eta2}"
         assert alpha >= 0.0, f"Invalid rho, should be non-negative: {alpha}"
 
-        defaults = dict(eta2=eta2, rho=rho, alpha=alpha, **kwargs)
+        defaults = dict(eta2=eta2, rho=rho, alpha=alpha, trace_penalty=trace_penalty, **kwargs)
         super(MegaSAM, self).__init__(params, defaults)
 
         self.M = M
@@ -59,8 +59,9 @@ class MegaSAM(torch.optim.Optimizer):
       grad_norm, grads_list, grads_flattened = self._grad_norm()
       M_inv = 1 / self.M
       grad_matrix_prod = grads_flattened * M_inv
-      update = 0.5 * (((self.param_groups[0]["rho"]) / grad_norm) * grad_matrix_prod * grad_matrix_prod
-                      + alpha * M_inv**2 / torch.sqrt(torch.sum(M_inv)))
+      update = 0.5 * (((self.param_groups[0]["rho"]) / grad_norm) * grad_matrix_prod * grad_matrix_prod)
+      if self.param_groups[0]["trace_penalty"]:
+        update += 0.5 * alpha * M_inv**2 / torch.sqrt(torch.sum(M_inv))
       self.M = self.M + eta2 * update  # eta2-t átírni
 
 
