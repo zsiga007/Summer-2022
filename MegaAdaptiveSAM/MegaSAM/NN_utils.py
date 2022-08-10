@@ -1,5 +1,4 @@
 import numpy as np
-import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -72,10 +71,10 @@ def train_binary_model(model, train_data, test_data, optim='SGD', batch_size=32,
     if optim == 'SAM':
         base_optimizer = torch.optim.SGD
         optimizer = SAM(model.parameters(), base_optimizer,rho=rho, lr = lr, momentum=momentum)
-    if optim=='MegaSAM':
+    if optim == 'MegaSAM':
         base_optimizer = torch.optim.SGD
         # need to import the class for megasam
-        # optimizer = MegaSAM(model.parameters(), base_optimizer)
+        optimizer = MegaSAM(model.parameters(), base_optimizer)
 
     training_losses = []
     training_accuracies = []
@@ -162,11 +161,10 @@ def train_multi_model(model, train_data, test_data, optim='SGD', batch_size=32, 
     if optim == 'SAM':
         base_optimizer = torch.optim.SGD
         optimizer = SAM(model.parameters(), base_optimizer,rho=rho, lr = lr, momentum=momentum)
-    if optim=='MegaSAM':
+    if optim == 'MegaSAM':
         base_optimizer = torch.optim.SGD
-        # need to import the class for megasam
         optimizer = MegaSAM(model.parameters(), M=torch.diag(torch.ones(numofparams)),
-                            base_optimizer=base_optimizer)
+                            base_optimizer=base_optimizer, lr=0.01)
 
     training_losses = []
     training_accuracies = []
