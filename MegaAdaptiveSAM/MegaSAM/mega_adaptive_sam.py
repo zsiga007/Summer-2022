@@ -27,6 +27,7 @@ class MegaSAM(torch.optim.Optimizer):
         scale = self.param_groups[0]['rho'] / (grad_norm + 1e-12)
         M_inv = 1 / self.M
         e_w = M_inv * grads_flattened * scale
+        print("Using reshape in first step")
         reshaped_e_w = self._reshape(e_w, grads_list)
         for group in self.param_groups:
           for index, p in enumerate(group["params"]):
@@ -51,7 +52,7 @@ class MegaSAM(torch.optim.Optimizer):
     def m_step(self, zero_grad=False):
       alpha = self.param_groups[0]['alpha']
       eta2 = self.param_groups[0]['eta2']
-      grad_norm, grads_list, grads_flattened = self._grad_norm()
+      grad_norm, _, grads_flattened = self._grad_norm()
       M_inv = 1 / self.M
       grad_matrix_prod = grads_flattened * M_inv
       update = 0.5 * (((self.param_groups[0]["rho"]) / grad_norm) * grad_matrix_prod * grad_matrix_prod)
@@ -86,9 +87,13 @@ class MegaSAM(torch.optim.Optimizer):
         return norm, grads_list, grads_flattened
 
     def _reshape(self, my_item, target):
+        print(f"target: {target}")
         target_shapes = [i.size() for i in target]
         target_sizes = [torch.numel(i) for i in target]
-        assert torch.numel(my_item) == sum(target_sizes)
+        print(f"target  sizes: {sum(target_sizes)}, shapes {target_shapes}")
+        print(f"len of my item: {torch.numel(my_item)}")
+        #assert torch.numel(my_item) == sum(target_sizes)
+
         chunked_item = torch.tensor_split(my_item, tuple(np.cumsum(target_sizes))[:-1])
         reshaped_item = [item.reshape(target_shapes[i]) for i, item in enumerate(chunked_item)]
         return reshaped_item
