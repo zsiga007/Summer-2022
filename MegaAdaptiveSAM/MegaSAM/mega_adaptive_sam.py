@@ -15,16 +15,21 @@ class MegaSAM(torch.optim.Optimizer):
 
         defaults = dict(eta2=eta2, rho=rho, alpha=alpha, trace_penalty=trace_penalty, **kwargs)
         super(MegaSAM, self).__init__(params, defaults)
-
-        self.M = M
-        self.base_optimizer = base_optimizer(self.param_groups, **kwargs)
+        if not M:
+            self.M = {key: torch.ones_like(tensor, requires_grad=True) for key, tensor in params.items()}
+        else:
+            self.M = M
+        print(f"param_groups: {self.param_groups}")
+        self.base_optimizer = base_optimizer(self.param_groups, **kwargs)  # add M here
+        
+        self.base_optimizer_M = base_optimizer(self.M, **kwargs)
         self.param_groups = self.base_optimizer.param_groups
         self.defaults.update(self.base_optimizer.defaults)
 
     @torch.no_grad()
     def first_step(self, zero_grad=False):
         grad_norm, grads_list, grads_flattened = self._grad_norm()
-        scale = self.param_groups[0]['rho'] / (grad_norm + 1e-12)
+        scale = self.param_groups[0]['rho'] / (grad_norm + 1e-12)  # torch.eps
         M_inv = 1 / self.M
         e_w = M_inv * grads_flattened * scale
         print("Using reshape in first step")
@@ -33,6 +38,7 @@ class MegaSAM(torch.optim.Optimizer):
           for index, p in enumerate(group["params"]):
             if p.grad is None: continue
             self.state[p]["old_p"] = p.data.clone()
+            #p.add_(p[index].grad**2 / self.M[index])
             p.add_(reshaped_e_w[index])
 
         if zero_grad: self.zero_grad()
@@ -87,11 +93,11 @@ class MegaSAM(torch.optim.Optimizer):
         return norm, grads_list, grads_flattened
 
     def _reshape(self, my_item, target):
-        print(f"target: {target}")
+        #print(f"target: {target}")
         target_shapes = [i.size() for i in target]
         target_sizes = [torch.numel(i) for i in target]
-        print(f"target  sizes: {sum(target_sizes)}, shapes {target_shapes}")
-        print(f"len of my item: {torch.numel(my_item)}")
+        #print(f"target  sizes: {sum(target_sizes)}, shapes {target_shapes}")
+        #print(f"len of my item: {torch.numel(my_item)}")
         #assert torch.numel(my_item) == sum(target_sizes)
 
         chunked_item = torch.tensor_split(my_item, tuple(np.cumsum(target_sizes))[:-1])
