@@ -15,14 +15,13 @@ class MegaSAM(torch.optim.Optimizer):
 
         defaults = dict(eta2=eta2, rho=rho, alpha=alpha, trace_penalty=trace_penalty, **kwargs)
         super(MegaSAM, self).__init__(params, defaults)
-        if not M:
+        if M is None:
             self.M = {key: torch.ones_like(tensor, requires_grad=True) for key, tensor in params.items()}
         else:
             self.M = M
-        print(f"param_groups: {self.param_groups}")
         self.base_optimizer = base_optimizer(self.param_groups, **kwargs)  # add M here
         
-        self.base_optimizer_M = base_optimizer(self.M, **kwargs)
+        #self.base_optimizer_M = base_optimizer(self.M, **kwargs)
         self.param_groups = self.base_optimizer.param_groups
         self.defaults.update(self.base_optimizer.defaults)
 
@@ -31,15 +30,16 @@ class MegaSAM(torch.optim.Optimizer):
         grad_norm, grads_list, grads_flattened = self._grad_norm()
         scale = self.param_groups[0]['rho'] / (grad_norm + 1e-12)  # torch.eps
         M_inv = 1 / self.M
-        e_w = M_inv * grads_flattened * scale
-        print("Using reshape in first step")
-        reshaped_e_w = self._reshape(e_w, grads_list)
+        #e_w = M_inv * grads_flattened * scale
+        #reshaped_e_w = self._reshape(e_w, grads_list)
         for group in self.param_groups:
           for index, p in enumerate(group["params"]):
             if p.grad is None: continue
             self.state[p]["old_p"] = p.data.clone()
-            #p.add_(p[index].grad**2 / self.M[index])
-            p.add_(reshaped_e_w[index])
+            M_inv_flat_chunk = M_inv[:torch.numel(p.grad)]
+            M_inv_chunk = M_inv_flat_chunk.reshape(p.grad.size())
+            p.add_(scale * M_inv_chunk * p.grad)
+            #p.add_(reshaped_e_w[index])
 
         if zero_grad: self.zero_grad()
 
@@ -89,6 +89,7 @@ class MegaSAM(torch.optim.Optimizer):
                         for item in grads_list
                     ])
         norm = torch.sqrt(M_inv.T @ grads_flattened**2)
+        #print(grads_list)
                
         return norm, grads_list, grads_flattened
 

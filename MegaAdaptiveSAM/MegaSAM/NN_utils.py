@@ -163,7 +163,7 @@ def train_multi_model(model, train_data, test_data, optim='SGD', batch_size=32, 
         optimizer = SAM(model.parameters(), base_optimizer,rho=rho, lr = lr, momentum=momentum)
     if optim == 'MegaSAM':
         base_optimizer = torch.optim.SGD
-        optimizer = MegaSAM(model.parameters(), M=torch.diag(torch.ones(numofparams)),
+        optimizer = MegaSAM(model.parameters(), M=torch.ones(numofparams),
                             base_optimizer=base_optimizer, lr=0.01)
 
     training_losses = []
