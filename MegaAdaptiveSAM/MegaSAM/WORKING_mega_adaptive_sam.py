@@ -13,19 +13,17 @@ class MegaSAM(torch.optim.Optimizer):
         assert eta2 >= 0.0, f"Invalid eta2, should be non-negative: {eta2}"
         assert alpha >= 0.0, f"Invalid rho, should be non-negative: {alpha}"
 
-        defaults = dict(rho=rho, trace_penalty=trace_penalty, **kwargs)
+        defaults = dict(eta2=eta2, rho=rho, alpha=alpha, trace_penalty=trace_penalty, **kwargs)
         super(MegaSAM, self).__init__(params, defaults)
         if M is None:
             self.M = {key: torch.ones_like(tensor, requires_grad=True) for key, tensor in params.items()}
         else:
             self.M = M
         self.base_optimizer = base_optimizer(self.param_groups, **kwargs)  # add M here
-        print(self.param_groups)
-        self.base_optimizer_M = base_optimizer([{"params": [self.M]}], **kwargs)
-        self.param_groups = [self.base_optimizer.param_groups[0],
-                             {"params": [self.M], "eta2": eta2, "alpha": alpha}]
+        
+        #self.base_optimizer_M = base_optimizer(self.M, **kwargs)
+        self.param_groups = self.base_optimizer.param_groups
         self.defaults.update(self.base_optimizer.defaults)
-        print(self.param_groups)
 
     @torch.no_grad()
     def first_step(self, zero_grad=False):
@@ -34,7 +32,8 @@ class MegaSAM(torch.optim.Optimizer):
         M_inv = 1 / self.M
         #e_w = M_inv * grads_flattened * scale
         #reshaped_e_w = self._reshape(e_w, grads_list)
-        for index, p in enumerate(self.param_groups[0]["params"]):
+        for group in self.param_groups:
+          for index, p in enumerate(group["params"]):
             if p.grad is None: continue
             self.state[p]["old_p"] = p.data.clone()
             M_inv_flat_chunk = M_inv[:torch.numel(p.grad)]
@@ -46,7 +45,8 @@ class MegaSAM(torch.optim.Optimizer):
 
     @torch.no_grad()
     def second_step(self, zero_grad=False):
-        for p in self.param_groups[0]["params"]:
+        for group in self.param_groups:
+            for p in group["params"]:
                 if p.grad is None: continue
                 p.data = self.state[p]["old_p"]  # get back to "w" from "w + e(w)"
 
@@ -56,20 +56,15 @@ class MegaSAM(torch.optim.Optimizer):
     
     @torch.no_grad()
     def m_step(self, zero_grad=False):
-      alpha = self.param_groups[1]['alpha']
-      eta2 = self.param_groups[1]['eta2']
+      alpha = self.param_groups[0]['alpha']
+      eta2 = self.param_groups[0]['eta2']
       grad_norm, _, grads_flattened = self._grad_norm()
       M_inv = 1 / self.M
-      #for M in self.param_groups[1]:
-      #  M.grad
-      self.base_optimizer_M.step()
-      if zero_grad: self.zero_grad()
-    
-      #grad_matrix_prod = grads_flattened * M_inv
-      #update = 0.5 * (((self.param_groups[0]["rho"]) / grad_norm) * grad_matrix_prod * grad_matrix_prod)
-      #if self.param_groups[0]["trace_penalty"]:
-      #  update += 0.5 * alpha * M_inv**2 / torch.sqrt(torch.sum(M_inv))
-      #self.M = self.M + eta2 * update
+      grad_matrix_prod = grads_flattened * M_inv
+      update = 0.5 * (((self.param_groups[0]["rho"]) / grad_norm) * grad_matrix_prod * grad_matrix_prod)
+      if self.param_groups[0]["trace_penalty"]:
+        update += 0.5 * alpha * M_inv**2 / torch.sqrt(torch.sum(M_inv))
+      self.M = self.M + eta2 * update
 
 
     @torch.no_grad()
@@ -86,7 +81,7 @@ class MegaSAM(torch.optim.Optimizer):
         M_inv = 1 / self.M
         grads_list = [ 
                   p.grad.to(shared_device)   # removed p=2 norm here
-                  for p in self.param_groups[0]["params"]
+                  for group in self.param_groups for p in group["params"]
                   if p.grad is not None
                     ]
         grads_flattened = torch.cat([
