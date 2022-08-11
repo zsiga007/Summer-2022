@@ -32,15 +32,12 @@ class MegaSAM(torch.optim.Optimizer):
         grad_norm, grads_list, grads_flattened = self._grad_norm()
         scale = self.param_groups[0]['rho'] / (grad_norm + 1e-12)  # torch.eps
         M_inv = 1 / self.M
-        #e_w = M_inv * grads_flattened * scale
-        #reshaped_e_w = self._reshape(e_w, grads_list)
         for index, p in enumerate(self.param_groups[0]["params"]):
             if p.grad is None: continue
             self.state[p]["old_p"] = p.data.clone()
             M_inv_flat_chunk = M_inv[:torch.numel(p.grad)]
             M_inv_chunk = M_inv_flat_chunk.reshape(p.grad.size())
             p.add_(scale * M_inv_chunk * p.grad)
-            #p.add_(reshaped_e_w[index])
 
         if zero_grad: self.zero_grad()
 
@@ -64,12 +61,7 @@ class MegaSAM(torch.optim.Optimizer):
       #  M.grad
       self.base_optimizer_M.step()
       if zero_grad: self.zero_grad()
-    
-      #grad_matrix_prod = grads_flattened * M_inv
-      #update = 0.5 * (((self.param_groups[0]["rho"]) / grad_norm) * grad_matrix_prod * grad_matrix_prod)
-      #if self.param_groups[0]["trace_penalty"]:
-      #  update += 0.5 * alpha * M_inv**2 / torch.sqrt(torch.sum(M_inv))
-      #self.M = self.M + eta2 * update
+  
 
 
     @torch.no_grad()
@@ -94,7 +86,6 @@ class MegaSAM(torch.optim.Optimizer):
                         for item in grads_list
                     ])
         norm = torch.sqrt(M_inv.T @ grads_flattened**2)
-        #print(grads_list)
                
         return norm, grads_list, grads_flattened
 
