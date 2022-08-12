@@ -45,94 +45,99 @@ def flatten_and_together(list_of_tensors):
 # Testing
 # print(flatten_and_together([torch.tensor([[1],[2]]), torch.tensor([1,2])]))
 
-def train_binary_model(model, train_data, test_data, optim='SGD', batch_size=32, epochs=10, tracking=False,
-                shuffle_loader=True, lr=0.01, momentum=0.9, criterion=nn.BCEWithLogitsLoss(),
-                rho=0.05):
-    """
-    Trains a model.
+# def train_binary_model(model, train_data, test_data, optim='SGD', batch_size=32, epochs=10, tracking=False,
+#                 shuffle_loader=True, lr=0.01, momentum=0.9, criterion=nn.BCEWithLogitsLoss(),
+#                 rho=0.05):
+#     """
+#     Trains a model.
 
-    Inputs:
-    model: an intantiation of the class of the model we want to train.
-    tracking: tracks test accuracy during training, Boolean
-    optimizer: String, can be 'SGD', 'SAM', 'Adam', 'MegaSAM'
-    rho: float, the rho parameter for SAM
-    """
-    from torchvision import datasets, transforms
-    from tqdm.notebook import tqdm, trange
+#     Inputs:
+#     model: an intantiation of the class of the model we want to train.
+#     tracking: tracks test accuracy during training, Boolean
+#     optimizer: String, can be 'SGD', 'SAM', 'Adam', 'MegaSAM'
+#     rho: float, the rho parameter for SAM
+#     """
+#     from torchvision import datasets, transforms
+#     from tqdm.notebook import tqdm, trange
 
-    train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=shuffle_loader)
-    test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=False)
-    val_loader = torch.utils.data.DataLoader(test_data, shuffle=False)
+#     train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=shuffle_loader)
+#     test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=False)
+#     val_loader = torch.utils.data.DataLoader(test_data, shuffle=False)
 
-    if optim == 'SGD':
-        optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=momentum)
-    if optim == 'Adam':
-        optimizer = torch.optim.Adam(model.parameters(), lr=lr, momentum=momentum)
-    if optim == 'SAM':
-        base_optimizer = torch.optim.SGD
-        optimizer = SAM(model.parameters(), base_optimizer,rho=rho, lr = lr, momentum=momentum)
-    if optim == 'MegaSAM':
-        base_optimizer = torch.optim.SGD
-        # need to import the class for megasam
-        optimizer = MegaSAM(model.parameters(), base_optimizer)
+#     if optim == 'SGD':
+#         optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=momentum)
+#     if optim == 'Adam':
+#         optimizer = torch.optim.Adam(model.parameters(), lr=lr, momentum=momentum)
+#     if optim == 'SAM':
+#         base_optimizer = torch.optim.SGD
+#         optimizer = SAM(model.parameters(), base_optimizer,rho=rho, lr = lr, momentum=momentum)
+#     if optim == 'MegaSAM':
+#         base_optimizer = torch.optim.SGD
+#         # need to import the class for megasam
+#         optimizer = MegaSAM(model.parameters(), base_optimizer)
 
-    training_losses = []
-    training_accuracies = []
-    validation_accuracies = []
+#     training_losses = []
+#     training_accuracies = []
+#     validation_accuracies = []
 
-    # Iterate through train set minibatchs 
-    for epoch in trange(epochs):  
-        per_epoch_loss = 0
-        correct = 0
-        for numbers, labels in train_loader:
-            x = numbers[:,None]
-            x = x.to(device)
-            labels = labels.double().to(device)[:,None]
-            # Zero out the gradients
-            optimizer.zero_grad()
-            if optim == "SAM":
-                def closure():
-                    loss = criterion(model(x), labels)
-                    loss.backward()
-                    return loss
-            # Forward pass
-            y = model(x)
-            loss = criterion(y, labels)
-            if tracking:
-                # Tracking loss
-                per_epoch_loss += loss
-                # Train accuracy tracking
-                predictions = ((y>0)*1)
-                correct += torch.sum((predictions == labels).float())
+#     # Iterate through train set minibatchs 
+#     for epoch in trange(epochs):  
+#         per_epoch_loss = 0
+#         correct = 0
+#         for numbers, labels in train_loader:
+#             # print(model.M)
+#             x = numbers[:,None]
+#             x = x.to(device)
+#             labels = labels.double().to(device)[:,None]
+#             # Zero out the gradients
+#             optimizer.zero_grad()
 
-            loss.backward()
-            if optim == "SAM" or optim == 'MegaSAM':
-                optimizer.step(closure)
-            if optim != "SAM":
-                optimizer.step()
+#             if optim == "SAM" or optim == 'MegaSAM':
+#                 def closure():
+#                     loss = criterion(model(x), labels)
+#                     loss.backward()
+#                     return loss
+#             if optim == 'MegaSAM':
 
-        if tracking:
-            correct_test = 0
-            with torch.no_grad():
-                    # Iterate through test set minibatchs 
-                    for numbers2, labels2 in val_loader:
-                        numbers2 = numbers2.to(device)
-                        labels2 = labels2.double().to(device)[:,None]
-                        # Forward pass
-                        x2 = numbers2[:,None]
-                        y2 = model(x2)
-                        predictions2 = ((y2>0)*1)[:,0]
-                        correct_test += torch.sum((predictions2 == labels2).float())
 
-            training_losses.append(per_epoch_loss/len(train_loader))
-            training_accuracies.append(correct/len(train_data))
-            validation_accuracies.append(correct_test/len(test_data))
+#             # Forward pass
+#             y = model(x)
+#             loss = criterion(y, labels)
+#             if tracking:
+#                 # Tracking loss
+#                 per_epoch_loss += loss
+#                 # Train accuracy tracking
+#                 predictions = ((y>0)*1)
+#                 correct += torch.sum((predictions == labels).float())
 
-    training_losses = [i.item() for i in training_losses]
-    training_accuracies = [i.item() for i in training_accuracies]
-    validation_accuracies = [i.item() for i in validation_accuracies]
+#             loss.backward()
+#             if optim == "SAM" or optim == 'MegaSAM':
+#                 optimizer.step(closure)
+#             if optim != "SAM":
+#                 optimizer.step()
 
-    return model, training_losses, training_accuracies, validation_accuracies
+#         if tracking:
+#             correct_test = 0
+#             with torch.no_grad():
+#                     # Iterate through test set minibatchs 
+#                     for numbers2, labels2 in val_loader:
+#                         numbers2 = numbers2.to(device)
+#                         labels2 = labels2.double().to(device)[:,None]
+#                         # Forward pass
+#                         x2 = numbers2[:,None]
+#                         y2 = model(x2)
+#                         predictions2 = ((y2>0)*1)[:,0]
+#                         correct_test += torch.sum((predictions2 == labels2).float())
+
+#             training_losses.append(per_epoch_loss/len(train_loader))
+#             training_accuracies.append(correct/len(train_data))
+#             validation_accuracies.append(correct_test/len(test_data))
+
+#     training_losses = [i.item() for i in training_losses]
+#     training_accuracies = [i.item() for i in training_accuracies]
+#     validation_accuracies = [i.item() for i in validation_accuracies]
+
+#     return model, training_losses, training_accuracies, validation_accuracies
 
 def train_multi_model(model, train_data, test_data, optim='SGD', batch_size=32, epochs=10, tracking=False,
                 shuffle_loader=True, lr=0.01, momentum=0.9, criterion=nn.CrossEntropyLoss(),
@@ -163,14 +168,15 @@ def train_multi_model(model, train_data, test_data, optim='SGD', batch_size=32, 
         optimizer = SAM(model.parameters(), base_optimizer,rho=rho, lr = lr, momentum=momentum)
     if optim == 'MegaSAM':
         base_optimizer = torch.optim.SGD
-        optimizer = MegaSAM(model.parameters(), M=torch.ones(numofparams),
-                            base_optimizer=base_optimizer, lr=0.01)
+        optimizer = MegaSAM(model.parameters(), base_optimizer=base_optimizer, lr=0.01)
 
     training_losses = []
     training_accuracies = []
     validation_accuracies = []
 
-    # Iterate through train set minibatchs 
+    # Iterate through train set minibatchs
+    if optim == 'MegaSAM':  
+        print(f'M before {optimizer.M}') 
     for epoch in trange(epochs):  
         per_epoch_loss = 0
         correct = 0
@@ -196,6 +202,7 @@ def train_multi_model(model, train_data, test_data, optim='SGD', batch_size=32, 
             y = y.double()
             labels = labels.long()
             loss = criterion(y, labels)
+
             if tracking:
                 # Tracking loss
                 per_epoch_loss += loss
@@ -208,10 +215,15 @@ def train_multi_model(model, train_data, test_data, optim='SGD', batch_size=32, 
                 # print(correct)
 
             loss.backward()
+            if optim == 'MegaSAM':
+                loss2 = optimizer.mloss()
+                loss2.backward()
             if optim == "SAM" or optim == 'MegaSAM':
                 optimizer.step(closure)
             if optim != "SAM" and optim != 'MegaSAM':
                 optimizer.step()
+        if optim == 'MegaSAM':  
+            print(f'M after {optimizer.M}') 
 
         if tracking:
             correct_test = 0
