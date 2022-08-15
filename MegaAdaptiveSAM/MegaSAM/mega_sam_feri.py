@@ -1,4 +1,5 @@
 import torch
+from torch.nn.parameter import Parameter
 
 
 class MegaSAM(torch.optim.Optimizer):
@@ -20,17 +21,17 @@ class MegaSAM(torch.optim.Optimizer):
         self.M_param_groups = []
         for param_group in self.param_groups:
             M_param_group = param_group.copy()
-            M_param_group['param'] = [torch.ones_like(
-                tensor, requires_grad=True) for tensor in param_group['params']]
+            M_param_group['param'] = [Parameter(torch.ones_like(
+                tensor, requires_grad=True)) for tensor in param_group['params']]
             M_param_group['lr'] = M_param_group['lr_M']
-            M_param_group.pop(lr_M)
-            param_group.pop(lr_M)
+            M_param_group.pop('lr_M')
+            param_group.pop('lr_M')
             self.M_param_groups.append(M_param_group)
 
         self.base_optimizer = base_optimizer(
             self.param_groups + self.M_param_groups, **kwargs)
 
-        self.eps = torch.max(torch.finfo(
+        self.eps = max(torch.finfo(
             self.param_groups[0]['params'][0].dtype).eps, 1e-12)
 
     def mloss(self):
@@ -73,7 +74,6 @@ class MegaSAM(torch.optim.Optimizer):
         if closure is None:
             raise ValueError(
                 "Sharpness Aware Minimization requires closure, but it was not provided")
-
         self._zero_M_grad()
         with torch.enable_grad():
             penalized_mloss = self.mloss() + self.alpha * self.mpenalty()

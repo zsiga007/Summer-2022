@@ -18,6 +18,6 @@ MLP = nn.Sequential(
 )
 
 model, training_losses, training_accuracies, validation_accuracies = train_multi_model(train_data=training_set, test_data=test_set, model=MLP,
-                       optim="SAM", batch_size=10, epochs=1, tracking=True)
+                       optim="MegaSAM", batch_size=10, epochs=1, tracking=True)
 
 # with MegaSam there was a problem with memory usage

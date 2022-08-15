@@ -9,7 +9,7 @@ from tqdm.notebook import tqdm
 import matplotlib.pyplot as plt
 device = "cuda" if torch.cuda.is_available() else "cpu"
 from sam.sam import SAM
-from mega_adaptive_sam import MegaSAM
+from mega_sam_feri import MegaSAM
 
 import sys; sys.path.append("..")
 sys.path.append("sam")
@@ -175,8 +175,7 @@ def train_multi_model(model, train_data, test_data, optim='SGD', batch_size=32, 
     validation_accuracies = []
 
     # Iterate through train set minibatchs
-    if optim == 'MegaSAM':  
-        print(f'M before {optimizer.M}') 
+ 
     for epoch in trange(epochs):  
         per_epoch_loss = 0
         correct = 0
@@ -215,15 +214,11 @@ def train_multi_model(model, train_data, test_data, optim='SGD', batch_size=32, 
                 # print(correct)
 
             loss.backward()
-            if optim == 'MegaSAM':
-                loss2 = optimizer.mloss()
-                loss2.backward()
             if optim == "SAM" or optim == 'MegaSAM':
                 optimizer.step(closure)
             if optim != "SAM" and optim != 'MegaSAM':
                 optimizer.step()
-        if optim == 'MegaSAM':  
-            print(f'M after {optimizer.M}') 
+ 
 
         if tracking:
             correct_test = 0
