@@ -1,5 +1,7 @@
 import numpy as np
 import torch
+import torch.nn as nn
+device = "cuda" if torch.cuda.is_available() else "cpu"
 # import torch.nn as nn
 # import torch.nn.functional as F
 # from torchvision import datasets, transforms
@@ -93,3 +95,116 @@ def merge_loader(l, shuffle, batch_size=10):
         for k in range(batch_size):
             finallist.append([new_loader_list[i][0][k], new_loader_list[i][1][k]])
     return finallist
+
+def train_multi_model(model, train_data, test_data, optim='SGD', batch_size=200, epochs=10, tracking=False,
+                shuffle_loader=True, lr=0.01, momentum=0.9, criterion=nn.CrossEntropyLoss()):
+    """
+    Trains a model for classification.
+
+    Inputs:
+    model: an intantiation of the class of the model we want to train.
+    tracking: tracks test accuracy during training, Boolean
+    optimizer: String, can be 'SGD', 'SAM', 'Adam', MegaSAM
+    rho: float, the rho parameter for SAM
+    """
+    from torchvision import datasets, transforms
+    from tqdm.notebook import tqdm, trange
+    num_of_params = get_n_params(model)
+
+    # train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=shuffle_loader)
+    # test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=False)
+    val_loader = torch.utils.data.DataLoader(test_data, shuffle=False)
+
+    if optim == 'SGD':
+        optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=momentum)
+    if optim == 'Adam':
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    optimizer2 = torch.optim.SGD(model.parameters(), lr=lr)
+
+    training_losses = []
+    training_accuracies = []
+    validation_accuracies = []
+    C_matrices = []
+    train_loader2 = torch.utils.data.DataLoader(train_data, batch_size=batch_size//2, shuffle=True) 
+
+    # Iterate through train set minibatchs
+ 
+    for epoch in trange(epochs):  
+        per_epoch_loss = 0
+        correct = 0
+        row_counter = 0
+        tensor = torch.zeros((len(train_loader2), num_of_params))
+        for points2, labels2 in train_loader2:
+            optimizer2.zero_grad()
+            x2 = points2[:, None]
+            x2 = x2.to(device)
+            labels2 = labels2.to(device)[:, None]
+            z = model(x2.float())
+            y2 = z.reshape((z.shape[0],10,1))
+            y2 = y2.double()
+            labels2 = labels2.long()
+            loss2 = criterion(y2, labels2)
+            loss2.backward()
+            # optimizer2.step()
+            tensor[row_counter, :] = flatten_and_together([param.grad for param in list(model.parameters())])
+            row_counter += 1
+        C_matrix = tensor @ tensor.T
+        C_matrix = C_matrix.detach().numpy()
+        new_shuffle = max_regrouping(C_matrix)
+        new_loader_list = merge_loader(list(train_loader2), new_shuffle, batch_size=batch_size)
+        train_loader = torch.utils.data.DataLoader(new_loader_list, batch_size=batch_size, shuffle=False)
+        # e = 0
+        # for i in train_loader:
+        #     print(i)
+        #     e+=1
+        #     if e==1:
+        #         break
+        # C_matrices.append(C_matrix)
+        model.zero_grad()
+        for numbers, labels in train_loader:
+            x = numbers[:,None]
+            x = x.to(device)
+            labels = labels.to(device)[:,None]
+            # Zero out the gradients
+            optimizer.zero_grad()
+            # Forward pass
+            z = model(x.float())
+            y = z.reshape((z.shape[0],10,1))
+
+            y = y.double()
+            labels = labels.long()
+            loss = criterion(y, labels)
+
+            loss.backward()
+            optimizer.step()
+
+            if tracking:
+                # Tracking loss
+                per_epoch_loss += loss
+                # Train accuracy tracking
+                predictions = torch.argmax(y, dim=1)
+                correct += torch.sum((predictions == labels).float())
+                # print(torch.sum((predictions == labels).float()))
+ 
+
+        if tracking:
+            correct_test = 0
+            with torch.no_grad():
+                    # Iterate through test set minibatchs 
+                    for numbers2, labels_ in val_loader:
+                        numbers2 = numbers2.to(device)
+                        labels_ = labels_.double().to(device)[:,None]
+                        # Forward pass
+                        x2 = numbers2[:,None]
+                        y2 = model(x2)
+                        predictions2 = torch.argmax(y2)
+                        correct_test += torch.sum((predictions2 == labels_).float())
+
+            training_losses.append(per_epoch_loss/len(train_loader))
+            training_accuracies.append(correct/len(train_data))
+            validation_accuracies.append(correct_test/len(test_data))
+    training_losses = [i.item() for i in training_losses]
+    training_accuracies = [i.item() for i in training_accuracies]
+    validation_accuracies = [i.item() for i in validation_accuracies]
+
+    return model, training_losses, training_accuracies, validation_accuracies, optimizer
