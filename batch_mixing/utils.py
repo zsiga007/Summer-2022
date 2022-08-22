@@ -55,6 +55,7 @@ def min_regrouping(C):
             min = np.argmin(C[row, :])
         final.append([row, min])
         taken.append(min)
+        taken.append(row)
     return final
 
 def max_regrouping(C):
@@ -65,7 +66,7 @@ def max_regrouping(C):
     n, _ = C.shape
     final = []
     taken = []
-    fill = C.min() -1
+    fill = C.min() - 1
     indices = np.arange(0,n)
     np.random.shuffle(indices)
     for row in indices:
@@ -77,11 +78,12 @@ def max_regrouping(C):
             max = np.argmax(C[row, :])
         final.append([row, max])
         taken.append(max)
+        taken.append(row)
     return final
 
 # C = np.random.rand(4,4)
 # print(C)
-# print(regrouping(C))
+# print(max_regrouping(C))
 
 def merge_loader(l, shuffle, batch_size=10):
     new_loader_list = []
@@ -151,15 +153,9 @@ def train_multi_model(model, train_data, test_data, optim='SGD', batch_size=200,
         C_matrix = tensor @ tensor.T
         C_matrix = C_matrix.detach().numpy()
         new_shuffle = max_regrouping(C_matrix)
-        new_loader_list = merge_loader(list(train_loader2), new_shuffle, batch_size=batch_size)
+        new_loader_list = merge_loader(l = list(train_loader2), shuffle = new_shuffle, batch_size=batch_size)
         train_loader = torch.utils.data.DataLoader(new_loader_list, batch_size=batch_size, shuffle=False)
-        # e = 0
-        # for i in train_loader:
-        #     print(i)
-        #     e+=1
-        #     if e==1:
-        #         break
-        # C_matrices.append(C_matrix)
+        # print(new_loader_list)
         model.zero_grad()
         for numbers, labels in train_loader:
             x = numbers[:,None]
