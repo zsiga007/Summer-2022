@@ -1,8 +1,9 @@
 import torch
+import numpy
 
 
 class MegaSAM(torch.optim.Optimizer):
-    def __init__(self, params, base_optimizer, lr_M=0.01, rho=0.05, alpha=torch.sqrt(254), trace_penalty=True, **kwargs):
+    def __init__(self, params, base_optimizer, lr_M=0.01, rho=0.05, alpha=np.sqrt(254), trace_penalty=True, **kwargs):
         if not rho >= 0.0:
             raise ValueError(f"Invalid rho, should be non-negative: {rho}")
         if not lr_M >= 0.0:
