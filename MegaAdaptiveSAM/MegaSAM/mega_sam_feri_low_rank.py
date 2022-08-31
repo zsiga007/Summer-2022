@@ -18,8 +18,9 @@ class MegaSAM(torch.optim.Optimizer):
         defaults = dict(lr_M=lr_M, **kwargs)
         super(MegaSAM, self).__init__(params, defaults)
 
-        num_params = torch.sum([tensor.size() for tensor in param_group['params']
-                                for param_group in self.param_groups])
+        num_params = torch.sum([tensor.size() for param_group in self.param_groups
+                                for tensor in param_group['params']])
+
         
         A = torch.normal(mean= 0.3 * torch.ones_like((num_params, 5)), std= 0.1 * torch.ones_like((num_params, 5)))
         D = torch.ones(num_params)

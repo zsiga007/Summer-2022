@@ -118,7 +118,6 @@ def train_multi_model(model, train_data, test_data, optim='SGD', batch_size=32, 
                 optimizer.step(closure)
             if optim != "SAM" and optim != 'MegaSAM':
                 optimizer.step()
-            print(optimizer.M_param_groups[0]['params'])
  
 
         if tracking:
