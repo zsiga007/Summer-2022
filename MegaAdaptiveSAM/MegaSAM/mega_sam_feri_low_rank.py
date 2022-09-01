@@ -24,9 +24,11 @@ class MegaSAM(torch.optim.Optimizer):
                 num_params += torch.numel(tensor)
         #num_params = torch.sum([torch.sum([tensor.size() for tensor in param_group["params"]]) for param_group in self.param_groups])
 
-        
-        A = torch.normal(mean= 0.3 * torch.ones((num_params, 5)), std= 0.1 * torch.ones((num_params, 5)))
-        D = torch.ones(num_params)
+        self.shared_device = self.param_groups[0]["params"][0].device
+        A = torch.ones((5, num_params), requires_grad=True, device=self.shared_device)
+        torch.nn.init.normal_(A,  mean = 1.0, std = 1)
+        #A = torch.normal(mean= 0.3 * torch.ones((num_params, 5)), std= 0.1 * torch.ones((num_params, 5)), requires_grad=True).to(self.shared_device)
+        D = torch.ones(num_params, requires_grad=True).to(self.shared_device)
         self.M_param_groups = [{'params': [A, D], 'lr': lr_M}]
    
 
@@ -36,8 +38,6 @@ class MegaSAM(torch.optim.Optimizer):
         self.eps = max(torch.finfo(
             self.param_groups[0]['params'][0].dtype).eps, 1e-12)
 
-        self.shared_device = self.param_groups[0]["params"][0].device
-
     def mloss(self):
         squared_norm, _ = self._grad_norm()
         return self.rho * torch.sqrt(squared_norm)
@@ -45,8 +45,11 @@ class MegaSAM(torch.optim.Optimizer):
     def mpenalty(self):
         A = self.M_param_groups[0]['params'][0]
         D = self.M_param_groups[0]['params'][1]
-        trace_Minv = torch.sum(1/D) - torch.trace(A.T @ torch.inverse((torch.eye(5) + A @ A.T / D)) @ A @ torch.diag(1/D**2))
-        logdet_M = torch.determinant(torch.eye(5) + A @ A.T / D) * torch.prod(D)
+        #trace_Minv = torch.sum(1/D) - torch.trace(A.T @ torch.inverse((torch.eye(5) + (A / D) @ A.T)) @ A @ torch.diag(1/D**2))
+        X = torch.linalg.solve((torch.eye(5) + (A / D) @ A.T), A)
+        trace_Minv = torch.sum(1/D) - torch.trace(A.T @ X @ torch.diag(1/D**2))
+       
+        logdet_M = torch.log(torch.determinant(torch.eye(5) + A @ A.T / D) * torch.prod(D))
         return self.alpha * trace_Minv + 1 * self.alpha * logdet_M
 
     @torch.no_grad()
@@ -57,13 +60,13 @@ class MegaSAM(torch.optim.Optimizer):
         D = self.M_param_groups[0]['params'][1]
 
         eps = grads / D - A.T @ torch.inverse((torch.eye(5) + A @ A.T / D)) @ (A @ grads.T) / (D**2)
-
+        #SOLVE_link_slack
         for group in self.param_groups:
           for p in group["params"]:
             if p.grad is None: continue
             self.state[p]["old_p"] = p.data.clone()
-            eps_chunk = eps[:p.size()]
-            eps = eps[p.size():]
+            eps_chunk = eps[:torch.numel(p)]
+            eps = eps[torch.numel(p):]
             eps_reshaped = eps_chunk.reshape(torch.shape(p))
             p.add_(scale * eps_reshaped)
 
@@ -103,7 +106,11 @@ class MegaSAM(torch.optim.Optimizer):
                     continue
                 tensor_list.append(torch.flatten(param.grad))
         grads = torch.cat(tensor_list).detach().to(self.shared_device)
-        squared_norm = grads ** 2 / D - (grads @ A.T) @ torch.inverse((torch.eye(5) + A @ A.T / D)) @ (A @ grads.T) / (D**2)
+        print(f"A shape {A.size()}")
+        print(f"D shape {D.size()}")
+        print(f"grads shape {grads.size()}")
+        print(f"Inv size: {torch.inverse((torch.eye(5) + (A / D) @ A.T ))}")
+        squared_norm = (grads ** 2) / D - (grads @ A.T) @ torch.inverse((torch.eye(5) + (A / D) @ A.T )) @ (A @ grads.T) / (D**2)
 
         return squared_norm, grads
 
