@@ -1,3 +1,3 @@
 
 
-from .mega_adaptive_sam import MegaSAM  # noqa F401
+from .mega_sam_feri import MegaSAM  # noqa F401
