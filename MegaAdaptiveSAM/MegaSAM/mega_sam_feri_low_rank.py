@@ -49,7 +49,7 @@ class MegaSAM(torch.optim.Optimizer):
         X = torch.linalg.solve((torch.eye(5) + (A / D) @ A.T), A)
         trace_Minv = torch.sum(1/D) - torch.trace(A.T @ X @ torch.diag(1/D**2))
        
-        logdet_M = torch.log(torch.determinant(torch.eye(5) + A @ A.T / D) * torch.prod(D))
+        logdet_M = torch.log(torch.determinant(torch.eye(5) + (A / D) @ A.T) * torch.prod(D))
         return self.alpha * trace_Minv + 1 * self.alpha * logdet_M
 
     @torch.no_grad()

@@ -21,12 +21,17 @@ class MegaSAM(torch.optim.Optimizer):
         self.M_param_groups = []
         for param_group in self.param_groups:
             M_param_group = param_group.copy()
+            #M_param_group['params'] = [torch.nn.init.normal_(torch.ones_like(
+            #    tensor, requires_grad=True), mean=1.0, std=.26) for tensor in param_group['params']]
             M_param_group['params'] = [torch.ones_like(
                 tensor, requires_grad=True) for tensor in param_group['params']]
+
             M_param_group['lr'] = M_param_group['lr_M']
             M_param_group.pop('lr_M')
             param_group.pop('lr_M')
             self.M_param_groups.append(M_param_group)
+
+        print(f"Starting M: {self.M_param_groups[0]['params']}")
 
         self.base_optimizer = base_optimizer(
             self.param_groups + self.M_param_groups, **kwargs)
@@ -78,6 +83,10 @@ class MegaSAM(torch.optim.Optimizer):
 
     @torch.no_grad()
     def step(self, closure):
+        trM = sum([torch.sum(tensor) for tensor in self.M_param_groups[0]["params"]])
+        #detM = np.log(np.prod([torch.prod(tensor) for tensor in self.M_param_groups[0]["params"]]))
+        print(f"Starting new step. trace of M={trM}")
+        #, detM={detM}")
         self._zero_M_grad()
         with torch.enable_grad():
             penalized_mloss = self.mloss() + self.mpenalty()

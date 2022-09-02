@@ -9,7 +9,7 @@ from tqdm.notebook import tqdm
 import matplotlib.pyplot as plt
 device = "cuda" if torch.cuda.is_available() else "cpu"
 from sam.sam import SAM
-from mega_sam_feri_low_rank import MegaSAM
+from mega_sam_feri import MegaSAM
 
 import sys; sys.path.append("..")
 sys.path.append("sam")
