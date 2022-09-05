@@ -15,7 +15,6 @@ class LagrangeOpt(torch.optim.Optimizer):
         super(LagrangeOpt, self).__init__(params, defaults)
 
         self.tilde_param_groups = []
-        self.lambd_param_groups = []
         for param_group in self.param_groups:
             tilde_param_group = param_group.copy()
             tilde_param_group['params'] = [torch.ones_like(
@@ -26,10 +25,10 @@ class LagrangeOpt(torch.optim.Optimizer):
             self.tilde_param_groups.append(tilde_param_group)
         
         #lambda is a number
-        self.lambd_param_group = [{"params": [torch.tensor([1], requires_grad=True)], "lr": lr_3}] 
+        self.lambd_param_groups = [{"params": [torch.tensor([1], requires_grad=True)], "lr": lr_3}] 
 
         self.base_optimizer = base_optimizer(
-            self.param_groups + self.tilde_param_groups, self.lambd_param_groups, **kwargs)
+            self.param_groups + self.tilde_param_groups + self.lambd_param_groups, **kwargs)
 
         self.eps = max(torch.finfo(
             self.param_groups[0]['params'][0].dtype).eps, 1e-12)
