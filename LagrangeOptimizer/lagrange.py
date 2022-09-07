@@ -60,8 +60,7 @@ class LagrangeOpt(torch.optim.Optimizer):
         self.base_optimizer.step()
 
     def tildeloss(self, closure):
-        #here we were trying to avoid nans
-        return - closure()[0]/(self.dist().detach()+self.eps) + 0.000001*self.dist().detach()*torch.abs(self.lambd_param_groups[0]["params"][0]).detach().to(self.shared_device) * self.dist()
+        return - closure()[0] + torch.abs(self.lambd_param_groups[0]["params"][0]).detach().to(self.shared_device) * self.dist()
            
     def lambdloss(self):
         # dist here is a constant so need to detach
@@ -85,7 +84,7 @@ class LagrangeOpt(torch.optim.Optimizer):
         for theta_param_group, tilde_param_group in zip(self.param_groups, self.tilde_param_groups):
             for theta, tilde in zip(theta_param_group['params'], tilde_param_group['params']):
                 # dist is constant in theta, so need to detach
-                theta = theta.detach().to(self.shared_device)
-                dist.add_(torch.norm(theta-tilde, p=2)**2)
+                theta_const = theta.detach().to(self.shared_device)
+                dist.add_(torch.norm(theta_const-tilde, p=2)**2)
         #print(f"Distance: {torch.sqrt(dist)}")
         return torch.sqrt(dist)
