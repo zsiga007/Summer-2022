@@ -46,7 +46,7 @@ class LagrangeOpt(torch.optim.Optimizer):
                 if theta.grad is None:
                     continue
                 self.state[theta]["old_theta"] = theta.data.clone()
-                theta = tilde
+                theta.data = tilde
         if zero_grad:
             self.zero_grad()
     

@@ -3,7 +3,7 @@ import numpy as np
 
 
 class MegaSAM(torch.optim.Optimizer):
-    def __init__(self, params, base_optimizer, lr_M=0.01, rho=0.05, alpha=np.sqrt(1 / 254), trace_penalty=True, **kwargs):
+    def __init__(self, params, base_optimizer, lr_M=0.01, rho=0.05, alpha=np.sqrt(1 / 254), trace_penalty=True, std=0.26, **kwargs):
         if not rho >= 0.0:
             raise ValueError(f"Invalid rho, should be non-negative: {rho}")
         if not lr_M >= 0.0:
@@ -21,10 +21,10 @@ class MegaSAM(torch.optim.Optimizer):
         self.M_param_groups = []
         for param_group in self.param_groups:
             M_param_group = param_group.copy()
-            #M_param_group['params'] = [torch.nn.init.normal_(torch.ones_like(
-            #    tensor, requires_grad=True), mean=1.0, std=.26) for tensor in param_group['params']]
-            M_param_group['params'] = [torch.ones_like(
-                tensor, requires_grad=True) for tensor in param_group['params']]
+            M_param_group['params'] = [torch.nn.init.normal_(torch.ones_like(
+                tensor, requires_grad=True), mean=1.0, std=std) for tensor in param_group['params']]
+            #M_param_group['params'] = [torch.ones_like(
+            #    tensor, requires_grad=True) for tensor in param_group['params']]
 
             M_param_group['lr'] = M_param_group['lr_M']
             M_param_group.pop('lr_M')
