@@ -46,7 +46,7 @@ class MegaSAM(torch.optim.Optimizer):
 
     def mloss(self):
         squared_norm = self._grad_norm()
-        return self.rho * torch.sqrt(squared_norm)
+        return self.rho * torch.sqrt(squared_norm) + self.mpenalty()
 
     def mpenalty(self):
         trace_Minv = torch.tensor(0.0, device=self.shared_device)
