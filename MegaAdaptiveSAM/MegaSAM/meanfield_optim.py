@@ -127,7 +127,7 @@ class MFVI(MeanFieldOptimizer):
             weight decay of mean parameter and strength of regularisation on
             the field parameter (default: 10)
         kl_div_weight (float, optional): weight given to the KL divergence term.
-            Should be chosen roughly proportional to batchsize/N where N is the
+            Should be chosen roughly proportional to 1/N where N is the
             total number of datasets (default: 0.01), assuming loss function
             calculates mean log loss.
         """
