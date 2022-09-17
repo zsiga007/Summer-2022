@@ -1,6 +1,7 @@
+from abc import ABC, abstractmethod
+
 import torch
 from torch.optim import Optimizer
-from abc import ABC, abstractmethod
 from torch.nn.init import constant_
 
 class MeanFieldOptimizer(Optimizer, ABC):
