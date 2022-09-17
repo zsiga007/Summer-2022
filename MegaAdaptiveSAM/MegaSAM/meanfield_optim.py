@@ -3,16 +3,14 @@ from torch.optim import Optimizer
 from abc import ABC, abstractmethod
 
 class MeanFieldOptimizer(Optimizer, ABC):
-"""Abstract base class for Mean-Field Type Optimizers, including
-Mean-Field Variational Inference or Variational SAM.
+    """Abstract base class for Mean-Field Type Optimizers, including
+    Mean-Field Variational Inference or Variational SAM.
 
-Subclasses must implement the get_perturbation method that returns
-a D-dimensional parameter vector of norm sqrt(D), shaped in the same
-format as in param_groups.
-"""
+    Subclasses must implement the get_perturbation method that returns
+    a D-dimensional parameter vector of norm sqrt(D), shaped in the same
+    format as in param_groups."""
 
-def __init__(self, params, base_optimizer, lr_sigma=0.01, sigma_prior = 0.01, **kwargs):
-    {rho}")
+    def __init__(self, params, base_optimizer, lr_sigma=0.01, sigma_prior = 0.01, **kwargs):
         if not lr_Sigma >= 0.0:
             raise ValueError(f"Invalid lr_Sigma, should be non-negative: {lr_Sigma}")
         if not sigma_prior > 0.0:
@@ -35,8 +33,7 @@ def __init__(self, params, base_optimizer, lr_sigma=0.01, sigma_prior = 0.01, **
             param_group.pop('lr_Sigma')
             self.M_param_groups.append(M_param_group)
 
-        self.base_optimizer = base_optimizer(
-            self.param_groups + self.M_param_groups, **kwargs)
+        self.base_optimizer = base_optimizer(self.param_groups + self.M_param_groups, **kwargs)
 
         self.eps = max(torch.finfo(
             self.param_groups[0]['params'][0].dtype).eps, 1e-12)
@@ -50,7 +47,7 @@ def __init__(self, params, base_optimizer, lr_sigma=0.01, sigma_prior = 0.01, **
         self.base_optimizer.step()
 
 
-    def _populate_gradients_for_mean(self, closure()):
+    def _populate_gradients_for_mean(self, closure):
         """This function populates the gradients of the mean parameter in
         `param_groups`. It first saves the original parameter values for later,
         applies the perturbation, zeroes out the gradients, calls the closure to
