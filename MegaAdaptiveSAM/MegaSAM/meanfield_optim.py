@@ -158,18 +158,23 @@ class VariationalSAM(MeanFieldOptimizer):
         for param_group, M_param_group in zip(self.param_groups, self.M_param_groups):
             perturbation_group = {'params':[]}
             for param, M in zip(param_group['params'], M_param_group['params']):
-                if param.grad is None:
-                    continue
-                perturbation = M*param.grad
-                squared_norm._add((perturbation**2).sum())
-                num_params+=torch.numel(perturbation)
-                perturbation_group['params'].append(perturbation)
+                if param.requires_grad:
+                    if param.grad is None:
+                        raise ValueError('VariationalSAM requires gradients to be populated to take a step.')
+                    perturbation = M*param.grad
+                    squared_norm._add((perturbation**2).sum())
+                    num_params+=torch.numel(perturbation)
+                    perturbation_group['params'].append(perturbation)
+                else:
+                    perturbation_group['params'].append(None)
+
             perturbation_groups.append(perturbation_group)
 
         scale = torch.sqrt(num_params / squared_norm)
 
         for perturbation_group in perturbation_groups:
             for perturbation in perturbation_group:
-                perturbation*= scale
+                if perturbation is not None:
+                    perturbation*= scale
 
         return perturbation_groups
