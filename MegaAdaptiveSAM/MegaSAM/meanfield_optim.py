@@ -13,12 +13,12 @@ class MeanFieldOptimizer(Optimizer, ABC):
 
     def __init__(self, params, base_optimizer, lr_sigma = 0.01, sigma_prior = 1, init_scale_M = 0.1, kl_div_weight = 0.01, **kwargs):
        
-       # if not lr_sigma >= 0.0:
-       #     raise ValueError(f"Invalid lr_sigma, should be non-negative: {lr_sigma}")
-       # if not sigma_prior > 0.0:
-       #     raise ValueError(f"Invalid sigma_prior, should be positive: {sigma_prior}")
-       # if not kl_div_weight >= 0.0:
-       #     raise ValueError(f"Invalid kl_div_weight, should be positive: {kl_div_weight}")
+        if not lr_sigma >= 0.0:
+            raise ValueError(f"Invalid lr_sigma, should be non-negative: {lr_sigma}")
+        if not sigma_prior >= 0.0:
+            raise ValueError(f"Invalid sigma_prior, should be non-negative: {sigma_prior}")
+        if not kl_div_weight >= 0.0:
+            raise ValueError(f"Invalid kl_div_weight, should be non-negative: {kl_div_weight}")
           
         self.sigma_prior = sigma_prior
         self.kl_div_weight = kl_div_weight
@@ -79,27 +79,14 @@ class MeanFieldOptimizer(Optimizer, ABC):
             for param in param_group["params"]:
                 if param.requires_grad:
                     param.data = self.state[param]["old_p"]
-        
-
+    
+    @abstractmethod
     @torch.no_grad()
-    def _populate_gradients_for_Sigma(self):
-        """This function computes the gradients with respect to the field parameters
-        in `M_param_group`. It does so by multiplying the corresponding mean parameter
-        gradients by the perturbations, and adding this value to the gradient of the KL
-        divergence."""
-
-        with torch.enable_grad():
-            kl_div = torch.tensor(0.0, device=self.shared_device)
-            for M_param_group in self.M_param_groups:
-                for M in M_param_group['params']:
-                    if M.requires_grad:
-                        kl_div+= (M**2).sum()/2/self.sigma_prior**2 + torch.log(torch.abs(M)).sum()
-            (self.kl_div_weight * kl_div).backward()
-
-        for param_group, M_param_group, perturbation_group in zip(self.param_groups, self.M_param_groups, self.perturbation_groups):
-            for param, M, perturbation in zip(param_group['params'], M_param_group['params'], perturbation_group['params']):
-                if param.requires_grad:
-                    M.grad.add_(param.grad * perturbation * torch.sign(M))
+    def populate_gradients_for_Sigma(self):
+        """Abstract method all subclasses must implement for calculating the
+        gradients for Sigma. This may be nothing."""
+        pass
+        
 
 
     def zero_grad(self):
@@ -132,6 +119,16 @@ class MFVI(MeanFieldOptimizer):
             total number of datasets (default: 0.01), assuming loss function
             calculates mean log loss.
         """
+    
+    def __init__(self, params, base_optimizer, lr_sigma = 0.01, sigma_prior = 1, init_scale_M = 0.1, kl_div_weight = 0.01, **kwargs):
+        if not lr_sigma > 0.0:
+            raise ValueError(f"Invalid lr_sigma, should be non-negative: {lr_sigma}")
+        if not sigma_prior > 0.0:
+            raise ValueError(f"Invalid sigma_prior, should be positive: {sigma_prior}")
+        if not kl_div_weight > 0.0:
+            raise ValueError(f"Invalid kl_div_weight, should be positive: {kl_div_weight}")
+        super(MFVI, self).__init__(params, base_optimizer, lr_sigma = 0.01, sigma_prior = 1, init_scale_M = 0.1, kl_div_weight = 0.01, **kwargs)
+
     def _get_perturbation(self):
         """Calculates a standard normal perturbation for each parameter."""
         perturbation_groups = []
@@ -146,9 +143,29 @@ class MFVI(MeanFieldOptimizer):
             perturbation_groups.append(perturbation_group)
 
         return perturbation_groups
+    
+    @torch.no_grad()
+    def _populate_gradients_for_Sigma(self):
+        """This function computes the gradients with respect to the field parameters
+        in `M_param_group`. It does so by multiplying the corresponding mean parameter
+        gradients by the perturbations, and adding this value to the gradient of the KL
+        divergence."""
+
+        with torch.enable_grad():
+            kl_div = torch.tensor(0.0, device=self.shared_device)
+            for M_param_group in self.M_param_groups:
+                for M in M_param_group['params']:
+                    if M.requires_grad:
+                        kl_div+= (M**2).sum()/2/self.sigma_prior**2 + torch.log(torch.abs(M)).sum()
+            (self.kl_div_weight * kl_div).backward()
+
+        for param_group, M_param_group, perturbation_group in zip(self.param_groups, self.M_param_groups, self.perturbation_groups):
+            for param, M, perturbation in zip(param_group['params'], M_param_group['params'], perturbation_group['params']):
+                if param.requires_grad:
+                    M.grad.add_(param.grad * perturbation * torch.sign(M))
 
 
-class RandomSAM(MFVI):
+class RandomSAM(MeanFieldOptimizer):
     """Implements Mean Field Variational Optimization.
     Args:
         params (iterable): iterable of parameters to optimize or dicts defining
@@ -176,12 +193,13 @@ class RandomSAM(MFVI):
 
         return perturbation_groups
       
-    def step(self, closure):        
-        self._populate_gradients_for_mean(closure)
-        self.base_optimizer.step()
+    @torch.no_grad()
+    def populate_gradients_for_Sigma(self):
+        pass  
 
 
 class VariationalSAM(MeanFieldOptimizer):
+        
     def _get_perturbation(self):
         perturbation_groups = []
         squared_norm = torch.tensor(0.0, device=self.shared_device)
