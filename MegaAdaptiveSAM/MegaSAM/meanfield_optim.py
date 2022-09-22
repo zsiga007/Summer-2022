@@ -82,7 +82,7 @@ class MeanFieldOptimizer(Optimizer, ABC):
     
     @abstractmethod
     @torch.no_grad()
-    def populate_gradients_for_Sigma(self):
+    def _populate_gradients_for_Sigma(self):
         """Abstract method all subclasses must implement for calculating the
         gradients for Sigma. This may be nothing."""
         pass
@@ -194,7 +194,7 @@ class RandomSAM(MeanFieldOptimizer):
         return perturbation_groups
       
     @torch.no_grad()
-    def populate_gradients_for_Sigma(self):
+    def _populate_gradients_for_Sigma(self):
         pass  
 
 
