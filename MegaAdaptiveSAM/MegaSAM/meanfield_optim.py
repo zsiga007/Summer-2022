@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import torch
 from torch.optim import Optimizer
 from torch.nn.init import constant_
+from torch.distributions import Normal
 
 
 class MeanFieldOptimizer(Optimizer, ABC):
@@ -176,7 +177,7 @@ class RandomSAM(MeanFieldOptimizer):
             (default: 1e-3)
         """
     def __init__(self, params, base_optimizer, **kwargs):
-      super(RandomSAM, self).__init__(params, base_optimizer, lr_sigma = 0.0, sigma_prior = 1, init_scale_M = 0.00005, kl_div_weight = 0.01, **kwargs)
+      super(RandomSAM, self).__init__(params, base_optimizer, lr_sigma = 0.0, sigma_prior = 1, init_scale_M = 5e-5, kl_div_weight = 0.0, **kwargs)
 
     def _get_perturbation(self):
         """Calculates a standard normal perturbation for each parameter."""
@@ -198,7 +199,9 @@ class RandomSAM(MeanFieldOptimizer):
         pass  
 
 
-class VariationalSAM(MeanFieldOptimizer):
+class VariationalSAM(MFVI):
+    def __init__(self, params, base_optimizer, lr_sigma = 0.01, sigma_prior = 1, init_scale_M = 0.1, kl_div_weight = 0.01, **kwargs):
+        super(VariationalSAM, self).__init__(params, base_optimizer, lr_sigma = 0.01, sigma_prior = 1, init_scale_M = 0.1, kl_div_weight = 0.01, **kwargs))
         
     def _get_perturbation(self):
         perturbation_groups = []
@@ -228,3 +231,43 @@ class VariationalSAM(MeanFieldOptimizer):
                     perturbation= scale * perturbation
 
         return perturbation_groups
+
+
+class MissSAM(MeanFieldOptimizer):
+      def __init__(self, params, base_optimizer, lr_sigma = 0.001, sigma_prior = 10, init_scale_M = 5e-5, kl_div_weight = 1/50000, kappa_scale=1, **kwargs):
+        self.kappa_scale = kappa_scale
+        super(MissSAM, self).__init__(params, base_optimizer, lr_sigma = 0.001, sigma_prior = 10, init_scale_M = 0.00005, kl_div_weight = 1/50000, **kwargs)
+
+      def _get_perturbation(self):
+        perturbation_groups = []
+        squared_norm = torch.tensor(0.0, device=self.shared_device)
+        m_squared_norm = torch.tensor(0.0, device=self.shared_device)
+        num_params = 0
+        for param_group, M_param_group in zip(self.param_groups, self.M_param_groups):
+            perturbation_group = {'params':[]}
+            mnorm = sum([((param_group['params'][i].grad * M_param_group['params'][i])**2).sum() for i in range(len(param_group['params']))])
+            for param, M in zip(param_group['params'], M_param_group['params']):
+                if param.requires_grad:
+                    if param.grad is None:
+                        raise ValueError('VariationalSAM requires gradients to be populated to take a step.')
+                    n = torch.numel(param)
+                    shape = param.shape
+                    mnormal = Normal(0, self.kappa_scale*mnorm).sample(shape).to(device)
+                    Mgrad = M*param.grad
+                    perturbation = Mgrad + mnormal
+                    squared_norm.add_((perturbation**2).sum())
+                    num_params += n
+                    perturbation_group['params'].append(perturbation)
+                else:
+                    perturbation_group['params'].append(None)
+            perturbation_groups.append(perturbation_group)
+        scale = torch.sqrt(num_params / squared_norm)
+        for perturbation_group in perturbation_groups:
+            for perturbation in perturbation_group['params']:
+                if perturbation is not None:
+                    perturbation= scale * perturbation
+        return perturbation_groups
+
+      @torch.no_grad()
+      def _populate_gradients_for_Sigma(self):
+          pass
