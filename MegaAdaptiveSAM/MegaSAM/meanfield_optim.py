@@ -194,19 +194,17 @@ class MixSAM(MeanFieldOptimizer):
       def _get_perturbation(self):
         perturbation_groups = []
         squared_norm = torch.tensor(0.0, device=self.shared_device)
-        sam_squared_norm = torch.tensor(0.0, device=self.shared_device)
         for param_group in self.param_groups:
             perturbation_group = {'params':[]}
-            sam_norm = sum([((param_group['params'][i].grad)**2).sum() for i in range(len(param_group['params']))])
+            sam_squared_norm = sum([((param_group['params'][i].grad)**2).sum() for i in range(len(param_group['params']))])
             for param in param_group['params']:
                 if param.requires_grad:
                     if param.grad is None:
                         raise ValueError('MixSAM requires gradients to be populated to take a step.')
-                    n = torch.numel(param)
                     shape = param.shape
-                    normal_pert = Normal(0, self.kappa_scale*torch.sqrt(sam_norm)).sample(shape).to(self.shared_device)
+                    normal_pert = Normal(0, torch.sqrt(sam_squared_norm)).sample(shape).to(self.shared_device)
                     grad = param.grad
-                    perturbation = grad + normal_pert
+                    perturbation = grad + torch.sqrt(self.kappa_scale) * normal_pert
                     squared_norm.add_((perturbation**2).sum())
                     perturbation_group['params'].append(perturbation)
                 else:
