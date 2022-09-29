@@ -187,8 +187,9 @@ class RandomSAM(MeanFieldOptimizer):
 
 
 class MixSAM(MeanFieldOptimizer):
-      def __init__(self, params, base_optimizer, kappa_scale=5e-5, **kwargs):
-        super(MixSAM, self).__init__(params, base_optimizer, lr_sigma=0.0, sigma_prior=1, kappa_scale=kappa_scale, kl_div_weight=0.0, **kwargs)
+      def __init__(self, params, base_optimizer, kappa_scale=1, **kwargs):
+        self.kappa_scale = kappa_scale
+        super(MixSAM, self).__init__(params, base_optimizer, lr_sigma=0.0, sigma_prior=0, init_scale_M=1.0, kl_div_weight=0.0, **kwargs)
 
       def _get_perturbation(self):
         perturbation_groups = []
