@@ -187,8 +187,9 @@ class RandomSAM(MeanFieldOptimizer):
 
 
 class MixSAM(MeanFieldOptimizer):
-      def __init__(self, params, base_optimizer, kappa_scale=1, **kwargs):
+      def __init__(self, params, base_optimizer, kappa_scale=1, rho=0.05, **kwargs):
         self.kappa_scale = kappa_scale
+        self.rho = rho
         super(MixSAM, self).__init__(params, base_optimizer, lr_sigma=0.0, sigma_prior=0, init_scale_M=1.0, kl_div_weight=0.0, **kwargs)
 
       def _get_perturbation(self):
@@ -202,15 +203,15 @@ class MixSAM(MeanFieldOptimizer):
                     if param.grad is None:
                         raise ValueError('MixSAM requires gradients to be populated to take a step.')
                     shape = param.shape
-                    normal_pert = Normal(0, torch.sqrt(sam_squared_norm)).sample(shape).to(self.shared_device)
+                    normal_pert = np.sqrt(self.kappa_scale) * Normal(0, torch.sqrt(sam_squared_norm)).sample(shape).to(self.shared_device)
                     grad = param.grad
-                    perturbation = grad + torch.sqrt(self.kappa_scale) * normal_pert
+                    perturbation = grad +  normal_pert
                     squared_norm.add_((perturbation**2).sum())
                     perturbation_group['params'].append(perturbation)
                 else:
                     perturbation_group['params'].append(None)
             perturbation_groups.append(perturbation_group)
-        scale = 0.05 / torch.sqrt(squared_norm)
+        scale = self.rho / torch.sqrt(squared_norm)
         for perturbation_group in perturbation_groups:
             for perturbation in perturbation_group['params']:
                 if perturbation is not None:
