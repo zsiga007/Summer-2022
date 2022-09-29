@@ -214,7 +214,7 @@ class MixSAM(MeanFieldOptimizer):
         for perturbation_group in perturbation_groups:
             for perturbation in perturbation_group['params']:
                 if perturbation is not None:
-                    perturbation= scale * perturbation
+                    perturbation.data = scale * perturbation
         return perturbation_groups
 
       @torch.no_grad()
