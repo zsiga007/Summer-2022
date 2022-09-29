@@ -79,7 +79,6 @@ class MeanFieldOptimizer(Optimizer, ABC):
                     param.data = self.state[param]["old_p"]
     
     @abstractmethod
-    @torch.no_grad()
     def _populate_gradients_for_Sigma(self):
         """Abstract method all subclasses must implement for calculating the
         gradients for Sigma. This may be nothing."""
